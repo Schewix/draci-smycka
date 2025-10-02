@@ -63,7 +63,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="page">
-      <div className="card">
+      <div className="card card--hero">
         <h1>Výsledky</h1>
         <p>{data ? data.event.name : 'Načítám…'}</p>
         {loading ? <p>Načítám…</p> : null}
