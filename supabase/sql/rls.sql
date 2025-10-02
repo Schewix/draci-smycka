@@ -1,245 +1,81 @@
--- Example RLS (adjust to your auth model). Enable RLS then define policies.
-alter table patrols enable row level security;
-alter table stations enable row level security;
-alter table station_passages enable row level security;
-alter table station_scores enable row level security;
-alter table timings enable row level security;
-alter table station_category_answers enable row level security;
-alter table station_quiz_responses enable row level security;
+-- Row level security configuration for Dračí smyčka
 
--- Helper predicates (expects JWT to carry event_id/station_id claims for judges)
-drop policy if exists "read_all_patrols" on patrols;
-drop policy if exists "patrols_select_event" on patrols;
-create policy "patrols_select_event" on patrols
-  for select using (
-    auth.role() in ('service_role', 'anon')
-    or auth.jwt()->>'event_id' = event_id::text
-  );
+-- Enable RLS ----------------------------------------------------------------
+alter table events enable row level security;
+alter table users enable row level security;
+alter table categories enable row level security;
+alter table nodes enable row level security;
+alter table user_event_roles enable row level security;
+alter table category_nodes enable row level security;
+alter table competitors enable row level security;
+alter table qr_tokens enable row level security;
+alter table attempts enable row level security;
+alter table attempt_audit_logs enable row level security;
+alter table user_sessions enable row level security;
 
-drop policy if exists "read_all_stations" on stations;
-drop policy if exists "stations_select_event" on stations;
-create policy "stations_select_event" on stations
-  for select using (
-    auth.role() in ('service_role', 'anon')
-    or auth.jwt()->>'event_id' = event_id::text
-  );
+-- Events --------------------------------------------------------------------
 
-drop policy if exists "read_all_passages" on station_passages;
-drop policy if exists "station_passages_select_station" on station_passages;
-create policy "station_passages_select_station" on station_passages
-  for select using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+drop policy if exists events_read_all on events;
+create policy events_read_all on events
+  for select using (auth.role() in ('anon', 'authenticated', 'service_role'));
 
-drop policy if exists "station_passages_write_station" on station_passages;
-create policy "station_passages_write_station" on station_passages
-  for insert with check (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+-- Users ---------------------------------------------------------------------
 
-drop policy if exists "station_passages_update_station" on station_passages;
-create policy "station_passages_update_station" on station_passages
-  for update using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  ) with check (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+drop policy if exists users_read_authenticated on users;
+create policy users_read_authenticated on users
+  for select using (auth.role() in ('authenticated', 'service_role'));
 
-drop policy if exists "station_passages_delete_station" on station_passages;
-create policy "station_passages_delete_station" on station_passages
-  for delete using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+-- Categories ----------------------------------------------------------------
 
-drop policy if exists "read_all_scores" on station_scores;
-drop policy if exists "station_scores_select_station" on station_scores;
-create policy "station_scores_select_station" on station_scores
-  for select using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+drop policy if exists categories_read_all on categories;
+create policy categories_read_all on categories
+  for select using (auth.role() in ('anon', 'authenticated', 'service_role'));
 
-drop policy if exists "station_scores_write_station" on station_scores;
-create policy "station_scores_write_station" on station_scores
-  for insert with check (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+-- Nodes ---------------------------------------------------------------------
 
-drop policy if exists "station_scores_update_station" on station_scores;
-create policy "station_scores_update_station" on station_scores
-  for update using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  ) with check (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+drop policy if exists nodes_read_all on nodes;
+create policy nodes_read_all on nodes
+  for select using (auth.role() in ('anon', 'authenticated', 'service_role'));
 
-drop policy if exists "station_scores_delete_station" on station_scores;
-create policy "station_scores_delete_station" on station_scores
-  for delete using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+-- User event roles ----------------------------------------------------------
 
-drop policy if exists "read_all_category_answers" on station_category_answers;
-drop policy if exists "category_answers_select_station" on station_category_answers;
-create policy "category_answers_select_station" on station_category_answers
-  for select using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+drop policy if exists user_event_roles_read_authenticated on user_event_roles;
+create policy user_event_roles_read_authenticated on user_event_roles
+  for select using (auth.role() in ('authenticated', 'service_role'));
 
-drop policy if exists "category_answers_write_station" on station_category_answers;
-create policy "category_answers_write_station" on station_category_answers
-  for insert with check (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+-- Category nodes ------------------------------------------------------------
 
-drop policy if exists "category_answers_update_station" on station_category_answers;
-create policy "category_answers_update_station" on station_category_answers
-  for update using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  ) with check (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+drop policy if exists category_nodes_read_all on category_nodes;
+create policy category_nodes_read_all on category_nodes
+  for select using (auth.role() in ('anon', 'authenticated', 'service_role'));
 
-drop policy if exists "category_answers_delete_station" on station_category_answers;
-create policy "category_answers_delete_station" on station_category_answers
-  for delete using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+-- Competitors ---------------------------------------------------------------
 
-drop policy if exists "read_all_quiz_responses" on station_quiz_responses;
-drop policy if exists "quiz_responses_select_station" on station_quiz_responses;
-create policy "quiz_responses_select_station" on station_quiz_responses
-  for select using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+drop policy if exists competitors_read_all on competitors;
+create policy competitors_read_all on competitors
+  for select using (auth.role() in ('anon', 'authenticated', 'service_role'));
 
-drop policy if exists "quiz_responses_write_station" on station_quiz_responses;
-create policy "quiz_responses_write_station" on station_quiz_responses
-  for insert with check (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+-- QR tokens -----------------------------------------------------------------
 
-drop policy if exists "quiz_responses_update_station" on station_quiz_responses;
-create policy "quiz_responses_update_station" on station_quiz_responses
-  for update using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  ) with check (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+drop policy if exists qr_tokens_read_authenticated on qr_tokens;
+create policy qr_tokens_read_authenticated on qr_tokens
+  for select using (auth.role() in ('authenticated', 'service_role'));
 
-drop policy if exists "quiz_responses_delete_station" on station_quiz_responses;
-create policy "quiz_responses_delete_station" on station_quiz_responses
-  for delete using (
-    auth.role() in ('service_role', 'anon')
-    or (
-      auth.jwt()->>'event_id' = event_id::text
-      and auth.jwt()->>'station_id' = station_id::text
-    )
-  );
+-- Attempts ------------------------------------------------------------------
 
-drop policy if exists "read_all_timings" on timings;
-drop policy if exists "timings_select_event" on timings;
-create policy "timings_select_event" on timings
-  for select using (
-    auth.role() = 'service_role'
-    or auth.jwt()->>'event_id' = event_id::text
-  );
+drop policy if exists attempts_read_authenticated on attempts;
+create policy attempts_read_authenticated on attempts
+  for select using (auth.role() in ('authenticated', 'service_role'));
 
-drop policy if exists "timings_write_event" on timings;
-create policy "timings_write_event" on timings
-  for insert with check (
-    auth.role() = 'service_role'
-    or auth.jwt()->>'event_id' = event_id::text
-  );
+-- Attempt audit logs --------------------------------------------------------
 
-drop policy if exists "timings_update_event" on timings;
-create policy "timings_update_event" on timings
-  for update using (
-    auth.role() = 'service_role'
-    or auth.jwt()->>'event_id' = event_id::text
-  ) with check (
-    auth.role() = 'service_role'
-    or auth.jwt()->>'event_id' = event_id::text
-  );
+drop policy if exists attempt_audit_logs_read_authenticated on attempt_audit_logs;
+create policy attempt_audit_logs_read_authenticated on attempt_audit_logs
+  for select using (auth.role() in ('authenticated', 'service_role'));
 
-drop policy if exists "timings_delete_event" on timings;
-create policy "timings_delete_event" on timings
-  for delete using (
-    auth.role() = 'service_role'
-    or auth.jwt()->>'event_id' = event_id::text
-  );
+-- User sessions -----------------------------------------------------------
+
+drop policy if exists user_sessions_read_self on user_sessions;
+create policy user_sessions_read_self on user_sessions
+  for select using (auth.role() in ('authenticated', 'service_role')
+    and auth.jwt()->>'sub' = user_id::text);

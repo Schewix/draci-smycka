@@ -74,16 +74,41 @@ if (!supabaseKey) {
 }
 
 const normalizedUrl = supabaseUrl.endsWith('/') ? supabaseUrl : `${supabaseUrl}/`;
-const restUrl = new URL('rest/v1/patrols', normalizedUrl);
-restUrl.searchParams.set('select', 'id,patrol_code,team_name');
-restUrl.searchParams.set('event_id', `eq.${eventId}`);
-restUrl.searchParams.set('order', 'patrol_code');
-restUrl.searchParams.set('active', 'eq.true');
+
+const eventUrl = new URL('rest/v1/events', normalizedUrl);
+eventUrl.searchParams.set('select', 'id,name,base_path');
+eventUrl.searchParams.set('id', `eq.${eventId}`);
+eventUrl.searchParams.set('limit', '1');
+
+const competitorsUrl = new URL('rest/v1/competitors', normalizedUrl);
+competitorsUrl.searchParams.set('select', 'id,display_name,start_number,category_code,qr_token');
+competitorsUrl.searchParams.set('event_id', `eq.${eventId}`);
+competitorsUrl.searchParams.set('order', 'start_number');
 
 const outputDir = path.resolve(process.cwd(), outputDirArg ?? path.join('qr-codes', eventId));
 
 try {
-  const response = await fetch(restUrl, {
+  const eventResponse = await fetch(eventUrl, {
+    headers: {
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+      Accept: 'application/json',
+    },
+  });
+
+  if (!eventResponse.ok) {
+    const errorText = await eventResponse.text();
+    throw new Error(`Failed to fetch event: ${eventResponse.status} ${eventResponse.statusText}\n${errorText}`);
+  }
+
+  const [event] = await eventResponse.json();
+
+  if (!event) {
+    console.error(`Event with ID ${eventId} not found.`);
+    process.exit(1);
+  }
+
+  const response = await fetch(competitorsUrl, {
     headers: {
       apikey: supabaseKey,
       Authorization: `Bearer ${supabaseKey}`,
@@ -96,10 +121,10 @@ try {
     throw new Error(`Failed to fetch patrols: ${response.status} ${response.statusText}\n${errorText}`);
   }
 
-  const patrols = await response.json();
+  const competitors = await response.json();
 
-  if (!Array.isArray(patrols) || patrols.length === 0) {
-    console.warn('No patrols found for the provided event ID.');
+  if (!Array.isArray(competitors) || competitors.length === 0) {
+    console.warn('No competitors found for the provided event ID.');
     process.exit(0);
   }
 
@@ -107,24 +132,32 @@ try {
 
   let generatedCount = 0;
   const labeledSvgs = [];
-  for (const patrol of patrols) {
-    const { id, patrol_code: patrolCode } = patrol;
-    const readableCode = typeof patrolCode === 'string' ? patrolCode.trim() : '';
+  const baseDomain = (process.env.QR_BASE_DOMAIN ?? 'https://zelenaliga.cz').replace(/\/$/, '');
+  const basePath = typeof event.base_path === 'string' && event.base_path.length > 0 ? event.base_path : '/draci-smycka';
 
-    if (!readableCode) {
-      console.warn(`Skipping patrol ${id ?? '<unknown>'} because patrol_code is missing.`);
+  for (const competitor of competitors) {
+    const { id, display_name: displayName, start_number: startNumber, qr_token: qrToken } = competitor;
+    const token = typeof qrToken === 'string' ? qrToken.trim() : '';
+
+    if (!token) {
+      console.warn(`Skipping competitor ${displayName ?? id ?? '<unknown>'} because qr_token is missing.`);
       continue;
     }
 
-    const payload = `seton://p/${readableCode}`;
+    const pathPart = basePath.startsWith('/') ? basePath : `/${basePath}`;
+    const payloadUrl = `${baseDomain}${pathPart}?t=${encodeURIComponent(token)}`;
+
+    const payload = payloadUrl;
     const baseSvg = await QRCode.toString(payload, {
       type: 'svg',
       errorCorrectionLevel: 'M',
       margin: 2,
     });
 
-    const labeledSvg = addLabel(baseSvg, readableCode);
-    const fileName = `${sanitizeFileName(readableCode)}.svg`;
+    const labelParts = [startNumber != null ? `#${startNumber}` : null, displayName ?? ''];
+    const label = labelParts.filter((part) => part && String(part).trim().length > 0).join(' ');
+    const labeledSvg = addLabel(baseSvg, label || token);
+    const fileName = `${sanitizeFileName(label || token)}.svg`;
     await writeFile(path.join(outputDir, fileName), labeledSvg.svg, 'utf8');
     labeledSvgs.push(labeledSvg);
     generatedCount += 1;

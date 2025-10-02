@@ -1,12 +1,15 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { env } from './env.js';
+import type { UserRole } from './types.js';
 
-interface TokenPayload {
-  sub: string;
-  stationId: string;
-  sessionId: string;
+export interface TokenPayload {
+  sub: string; // user id
   eventId: string;
+  role: UserRole;
+  sessionId: string;
+  nodeIds?: string[];
+  allowedCategories?: string[];
   type: 'access' | 'refresh';
 }
 
@@ -22,8 +25,12 @@ export function createRefreshToken(payload: Omit<TokenPayload, 'type'>) {
   });
 }
 
-export function verifyAccessToken(token: string) {
+export function verifyAccessToken(token: string): TokenPayload {
   return jwt.verify(token, env.JWT_SECRET) as TokenPayload;
+}
+
+export function verifyRefreshToken(token: string): TokenPayload {
+  return jwt.verify(token, env.REFRESH_TOKEN_SECRET) as TokenPayload;
 }
 
 export function randomToken(bytes = 32) {
